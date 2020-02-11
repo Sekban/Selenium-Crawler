@@ -1,37 +1,99 @@
+
 import time
 import csv
 import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
 
 class Academic:
-    def __init__(self, name=None, academicBackground=None, education=None, books=None, publications=None, proceedings=None):
-        self.name = name
-        self.academicBackground = academicBackground
-        self.education = education
-        self.books = books
-        self.publications = publications
-        self.proceedings = proceedings
+    def __init__(self, unvan=None, isim=None, calistigiYer=None, calismaAlanlari=None, egitimGecmisi=None, 
+    kitapSayisi=None, uluslararasiYayinSayisi=None, yerliYayinSayisi=None, digerYayinSayisi=None,
+    uluslararasiBildiriSayisi=None, yerliBildiriSayisi=None):
+        self.unvan = unvan
+        self.isim = isim
+        self.calistigiYer = calistigiYer
+        self.calismaAlanlari = calismaAlanlari
+        self.egitimGecmisi = egitimGecmisi
+        self.kitapSayisi = kitapSayisi
+        self.uluslararasiYayinSayisi = uluslararasiYayinSayisi
+        self.yerliYayinSayisi = yerliYayinSayisi
+        self.digerYayinSayisi = digerYayinSayisi
+        self.uluslararasiBildiriSayisi = uluslararasiBildiriSayisi
+        self.yerliBildiriSayisi = yerliBildiriSayisi
 
 
-keys = ['Isim', 'AkademikGorevler', 'OgrenimBilgisi','Kitaplar', 'Makaleler', 'Bildiriler']
+keys = ['Unvan', 'Isim', 'CalistigiYer','Calisma Alanlari', 'Egitim Gecmisi', 'Kitap Sayisi', 
+'Uluslararasi Yayin Sayisi', 'Yerli Yayin Sayisi', 'Diger Yayin Sayisi', 
+'Uluslararasi Bildiri Sayisi', 'Yerli Bildiri Sayisi']
 
-
-comOutfile = "outputs/iletisim.csv" 
-comOutputFile = open(comOutfile, 'w', newline='', encoding='utf-8')
-com_dict_writer = csv.DictWriter(comOutputFile, keys)
-com_dict_writer.writeheader()
-
-psychOutfile = "outputs/psikoloji.csv" 
-psychOutputFile = open(psychOutfile, 'w', newline='', encoding='utf-8')
-psych_dict_writer = csv.DictWriter(psychOutputFile, keys)
-psych_dict_writer.writeheader()
+bolum_keywords = ['iletişim', 'yeni medya', 'medya ve iletişim', 'yeni medya ve iletişim', 'yeni medya ve gazetecilik',
+'sinema ve dijital medya', 'yeni medya ve iletişim tasarımı']
 
 
 chrome_options = Options()  
-chrome_options.add_argument("--headless")  
+chrome_options.add_argument("--headless")
+driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)  # Optional argument, if not specified will search path.
 
-driver = webdriver.Chrome(chrome_options=chrome_options)  # Optional argument, if not specified will search path.
+def fetchUniInfobyDep(link):
+    driver.get(link)
+    uniElements = driver.find_element_by_class_name('searchable').find_elements_by_tag_name('tr')
+    for uniElement in uniElements:
+        driver.get(link)
+        actualUniElements = driver.find_element_by_class_name('searchable').find_elements_by_tag_name('tr')
+        driver.get(actualUniElements[uniElements.index(uniElement)].find_element_by_tag_name('a').get_attribute('href'))
+        'Initialising Iletisim'
+        birimElements = driver.find_element_by_id('searchlist').find_elements_by_tag_name('a')
+        for birimElement in birimElements:
+            actualBirimElements = driver.find_element_by_id('searchlist').find_elements_by_tag_name('a')
+            if "İLETİŞİM" in actualBirimElements[birimElements.index(birimElement)].text:
+                continue
+            driver.get(actualBirimElements[birimElements.index(birimElement)].get_attribute('href'))
+            try:
+                depElementParent = driver.find_elements_by_xpath("(//ul[@class='list-group'])[4]")
+                if len(depElementParent) > 0:
+                    depElements = depElementParent[0].find_elements_by_tag_name("a")
+                    for depElement in depElements:
+                        actualDepElements = driver.find_element_by_xpath("(//ul[@class='list-group'])[4]").find_elements_by_tag_name("a")
+                        depInterested = False
+                        depNameLowerCase = actualDepElements[depElements.index(depElement)].text.lower()
+                        for bolum in bolum_keywords:
+                            if bolum in depNameLowerCase:
+                                depInterested = True
+                                break
+                        if depInterested == True:
+                            fetchAuthorLinks(actualDepElements[depElements.index(depElement)].get_attribute('href'), com_dict_bolum_writer)
+                            driver.back()
+                    driver.back()
+            except NoSuchElementException:
+                driver.back()
+        driver.back()
+
+        
+def fetchUniInfo(link):
+    driver.get(link)
+    uniElements = driver.find_element_by_class_name('searchable').find_elements_by_tag_name('tr')
+    for uniElement in uniElements:
+        driver.get(link)
+        actualUniElements = driver.find_element_by_class_name('searchable').find_elements_by_tag_name('tr')
+        driver.get(actualUniElements[uniElements.index(uniElement)].find_element_by_tag_name('a').get_attribute('href'))
+        'Initialising Iletisim'
+        iletisimBirimElements = driver.find_element_by_id('searchlist').find_elements_by_partial_link_text('İLETİŞİM')
+        for iletisimBirimElement in iletisimBirimElements:
+            actualIletisimBirimElements = driver.find_element_by_id('searchlist').find_elements_by_partial_link_text('İLETİŞİM')
+            fetchAuthorLinks(actualIletisimBirimElements[iletisimBirimElements.index(iletisimBirimElement)].get_attribute('href'), com_dict_writer)
+            driver.back()
+        'Initialising Psychology'
+        psikolojiBirimElements = driver.find_element_by_id('searchlist').find_elements_by_partial_link_text('PSİKOLOJİ')
+        for psikolojiBirimElement in psikolojiBirimElements:
+            actualPsikolojiBirimElements = driver.find_element_by_id('searchlist').find_elements_by_partial_link_text('PSİKOLOJİ')
+            fetchAuthorLinks(actualPsikolojiBirimElements[psikolojiBirimElements.index(psikolojiBirimElement)].get_attribute('href'), psych_dict_writer)
+            driver.back()
+        'We should be done by now...'
+        driver.back()
+
+    
 
 def fetchAuthorLinks(link, fileToWriteIn):
     driver.get(link)
@@ -39,7 +101,17 @@ def fetchAuthorLinks(link, fileToWriteIn):
     for author in authors:
         actualAuthors = driver.find_elements_by_css_selector('[id^=authorInfo')
         link_element = actualAuthors[authors.index(author)].find_element_by_tag_name('h4').find_element_by_tag_name('a')
-        extractAuthorInformation(link_element.get_attribute('href'), fileToWriteIn)
+        title = actualAuthors[authors.index(author)].find_element_by_xpath('(//h6)[1]').text
+        name = actualAuthors[authors.index(author)].find_element_by_tag_name('h4').text
+        position = actualAuthors[authors.index(author)].find_element_by_xpath('(//h6)[2]').text
+        'Calisma Alanlari'
+        calismaAlanlariStr = []
+        calismaAlanlari = actualAuthors[authors.index(author)].find_elements_by_tag_name('span')
+        for calismaAlani in calismaAlanlari:
+            calismaAlaniText = calismaAlani.text
+            if calismaAlaniText != '':
+                calismaAlanlariStr.append(calismaAlaniText)
+        extractAuthorInformation(link_element.get_attribute('href'), title, name, position, ';'.join(calismaAlanlariStr), fileToWriteIn)
         driver.back()
         print("Successful")
     
@@ -57,29 +129,14 @@ def fetchNextPage(element):
         return nextPaginationElement[0].find_element_by_tag_name('a').get_attribute('href')
 
 
-def extractAuthorInformation(author, fileToWriteIn):
+def extractAuthorInformation(author, title, name, position, studyTopics, fileToWriteIn):
     driver.get(author)
 
     academic = Academic()
-    academic.name = driver.find_element_by_id('authorlistTb').find_element_by_tag_name('h4').text
-
-    'Academic Background'
-    academicBackgroundListItems = driver.find_element_by_xpath('(//ul[@class="timeline"])[1]').find_elements_by_tag_name('li')
-    academicBackgrounds = []
-    for i in range(1, len(academicBackgroundListItems) - 1, 2):
-        academicBackground = {
-            "year": None,
-            "position": None,
-            "university": None,
-            "department": None
-        }
-        academicBackground["year"] = academicBackgroundListItems[i].find_element_by_tag_name('span').text
-        academicBackground["position"] = academicBackgroundListItems[i+1].find_element_by_class_name('timeline-footer').find_element_by_tag_name('a').text
-        academicBackground["university"] = academicBackgroundListItems[i+1].find_element_by_class_name('timeline-item').find_element_by_tag_name('h4').text
-        academicBackground["department"] = academicBackgroundListItems[i+1].find_element_by_class_name('timeline-item').find_element_by_class_name('timeline-body').find_element_by_tag_name('h5').text
-        academicBackgrounds.append(academicBackground)
-
-    academic.academicBackground = json.dumps(academicBackgrounds, ensure_ascii=False)
+    academic.unvan = title
+    academic.isim = name
+    academic.calistigiYer = position
+    academic.calismaAlanlari = studyTopics
 
     'Education'
     educationListItems = driver.find_element_by_xpath('(//ul[@class="timeline"])[2]').find_elements_by_tag_name('li')
@@ -95,70 +152,79 @@ def extractAuthorInformation(author, fileToWriteIn):
         education["degree"] = educationListItems[i+1].find_element_by_class_name('timeline-footer').find_element_by_tag_name('a').text
         education["university"] = educationListItems[i+1].find_element_by_class_name('timeline-item').find_element_by_tag_name('h4').text
         education["department"] = educationListItems[i+1].find_element_by_class_name('timeline-item').find_element_by_class_name('timeline-body').find_element_by_tag_name('h5').text
-        educationHistory.append(education)
+        educationHistory.append(', '.join("{!s}".format(val) for (key,val) in education.items()))
     
-    academic.education = json.dumps(educationHistory, ensure_ascii=False)
+
+
+    academic.egitimGecmisi = ";".join(educationHistory)
 
     'Publications'
     driver.get(driver.find_element_by_id("articleMenu").find_element_by_tag_name("a").get_attribute("href"))
-    publicationElements = driver.find_element_by_class_name("searchable").find_elements_by_tag_name("tr")
-    publications = []
-    for publicationElement in publicationElements:
-        publication = {
-            "title": None,
-            "journal": None
-        }
-        publication["title"] = publicationElement.find_element_by_xpath("//span[@class='baslika']").find_element_by_tag_name("a").text
-        splitPublication = publicationElement.text.split("\n")
-        if len(splitPublication) > 1:
-            publication["journal"] = splitPublication[1]
-        
-        publications.append(publication)
+    internationalPublicationElements = driver.find_elements_by_id('international')
+    if len(internationalPublicationElements) > 0:
+        academic.uluslararasiYayinSayisi = len(internationalPublicationElements[0].find_element_by_class_name("searchable").find_elements_by_tag_name("tr"))
+    else:
+        academic.uluslararasiYayinSayisi = 0
+    domesticPublicationElements = driver.find_elements_by_id('national')
+    if len(domesticPublicationElements) > 0:
+        academic.yerliYayinSayisi = len(domesticPublicationElements[0].find_element_by_class_name("searchable").find_elements_by_tag_name("tr"))
+    else:
+        academic.yerliYayinSayisi = 0
+    otherPublicationElements = driver.find_element_by_id('all').find_element_by_class_name("searchable").find_elements_by_tag_name("tr")
+    academic.digerYayinSayisi = len(otherPublicationElements)
     
-    academic.publications = json.dumps(publications, ensure_ascii=False)
     driver.back()
 
     'Proceedings'
     driver.get(driver.find_element_by_id("proceedingMenu").find_element_by_tag_name("a").get_attribute("href"))
-    proceedingElements = driver.find_element_by_class_name("searchable").find_elements_by_tag_name("tr")
-    proceedings = []
-    for proceedingElement in proceedingElements:
-        proceeding = {
-            "title": None,
-            "actor(s)": None,
-            "event": None
-        }
-        proceeding["title"] = proceedingElement.find_element_by_xpath("//span[@class='baslika']").find_element_by_tag_name("a").text
-        splitProceeding = proceedingElement.text.split("\n")
-        if len(splitProceeding) > 1:
-            proceeding["event"] = splitProceeding[1]
+    internationalProceedingElements = driver.find_elements_by_id('international')
+    if len(internationalProceedingElements) > 0:
+        academic.uluslararasiBildiriSayisi = len(internationalProceedingElements[0].find_element_by_class_name("searchable").find_elements_by_tag_name("tr"))
+    else:
+        academic.uluslararasiBildiriSayisi = 0
+    domesticProceedingElements = driver.find_elements_by_id('national')
+    if len(domesticProceedingElements) > 0:
+        academic.yerliBildiriSayisi = len(domesticProceedingElements[0].find_element_by_class_name("searchable").find_elements_by_tag_name("tr"))
+    else:
+        academic.yerliBildiriSayisi = 0
 
-        proceedings.append(proceeding)
-    
-    academic.proceedings = json.dumps(proceedings, ensure_ascii=False)
     driver.back()
 
     'Books'
     driver.get(driver.find_element_by_id("booksMenu").find_element_by_tag_name("a").get_attribute("href"))
     bookElements = driver.find_element_by_class_name("projects").find_elements_by_tag_name("div")
-    books = []
-    for bookElement in bookElements:
-        book = {
-            "title": None,
-            "publisher": None,
-            "year": None
-        }
-        book["title"] = bookElement.find_element_by_tag_name("strong").text
-        book["publisher"] = bookElement.find_element_by_xpath("(//p)[2]").text
-        book["year"] = bookElement.find_element_by_xpath("//span[@class='label label-info']").text
-        books.append(book)
+    academic.kitapSayisi = len(bookElements)
     
-    academic.books = json.dumps(books, ensure_ascii=False)
+    if "Doktora" in academic.egitimGecmisi:
+        fileToWriteIn.writerow({'Unvan': academic.unvan, 'Isim': academic.isim, 'CalistigiYer': academic.calistigiYer, 'Calisma Alanlari': academic.calismaAlanlari, 'Egitim Gecmisi': academic.egitimGecmisi, 
+        'Kitap Sayisi': academic.kitapSayisi, 'Uluslararasi Yayin Sayisi': academic.uluslararasiYayinSayisi, 'Yerli Yayin Sayisi': academic.yerliYayinSayisi,
+        'Diger Yayin Sayisi': academic.digerYayinSayisi, 'Uluslararasi Bildiri Sayisi': academic.uluslararasiBildiriSayisi, 'Yerli Bildiri Sayisi': academic.yerliBildiriSayisi})
 
-    fileToWriteIn.writerow({'Isim': academic.name, 'AkademikGorevler': academic.academicBackground, 'OgrenimBilgisi': academic.education, 'Kitaplar': academic.books, 'Makaleler': academic.publications, 'Bildiriler': academic.proceedings})
     driver.back()
 
 
+comOutfileBolum = "outputs/iletisim_bolum.csv"
+comOutputFileBolum = open(comOutfileBolum, 'w', newline='', encoding='utf-8')
+com_dict_bolum_writer = csv.DictWriter(comOutputFileBolum, keys)
+com_dict_bolum_writer.writeheader()
+fetchUniInfobyDep('https://akademik.yok.gov.tr/AkademikArama/view/universityListview.jsp')
+comOutputFileBolum.close()
+
+psychOutfile = "outputs/psikoloji.csv" 
+psychOutputFile = open(psychOutfile, 'w', newline='', encoding='utf-8')
+psych_dict_writer = csv.DictWriter(psychOutputFile, keys)
+psych_dict_writer.writeheader()
+
+comOutfile = "outputs/iletisim.csv" 
+comOutputFile = open(comOutfile, 'w', newline='', encoding='utf-8')
+com_dict_writer = csv.DictWriter(comOutputFile, keys)
+com_dict_writer.writeheader()
+
+fetchUniInfo('https://akademik.yok.gov.tr/AkademikArama/view/universityListview.jsp')
+psychOutputFile.close()
+comOutputFile.close()
+
+'''
 'Initialising Iletisim'
 'Gorsel Iletisim Tasarimi'
 fetchAuthorLinks('https://akademik.yok.gov.tr/AkademikArama/AkademisyenArama?islem=uDtR4DFNBLiPHbTpsE4MHPXlqzHXR9804alf5t3WAK_DSh--IWGUumkwXAa42sRR', com_dict_writer)
@@ -184,6 +250,13 @@ fetchAuthorLinks('https://akademik.yok.gov.tr/AkademikArama/AkademisyenArama?isl
 fetchAuthorLinks('https://akademik.yok.gov.tr/AkademikArama/AkademisyenArama?islem=uDtR4DFNBLiPHbTpsE4MHMCAZIPWmaR6kCtoc8zSlhnDSh--IWGUumkwXAa42sRR', psych_dict_writer)
 'Sosyal Psikoloji'
 fetchAuthorLinks('https://akademik.yok.gov.tr/AkademikArama/AkademisyenArama?islem=uDtR4DFNBLiPHbTpsE4MHAhmeP8-0nlILe8ZLw_LROzDSh--IWGUumkwXAa42sRR', psych_dict_writer)
+'''
+
 
 time.sleep(5)
 driver.quit()
+
+
+"""
+for academic.egitimGecmisi we are only considering doktora. If someone holds a doktora, we are only considering that. Egitim gecmisi field would still have postgraduate, and graduate information.
+"""
